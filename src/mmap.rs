@@ -37,9 +37,6 @@ impl<'a> MMappedFile<'a> {
 
 impl<'a> Drop for MMappedFile<'a> {
     fn drop(&mut self) {
-        let ret = unsafe { libc::munmap(self.ptr, self.size) };
-        if ret != 0 {
-            panic!("munmap failed");
-        }
+        unsafe { libc::munmap(self.ptr, self.size) };
     }
 }
