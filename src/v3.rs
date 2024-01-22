@@ -13,62 +13,58 @@ pub(crate) fn run<P>(filename: P) -> Result<()>
 where
     P: AsRef<Path>,
 {
-    let result = std::thread::scope(|scope| -> Result<StationStats> {
-        let file = unsafe { MMappedFile::new(File::open(filename)?) }?;
-        let data = file.as_slice();
+    let file = unsafe { MMappedFile::new(File::open(filename)?) }?;
+    let data = file.as_slice();
 
-        let num_threads = min(MAX_THREADS, (data.len() + PAGE_SIZE - 1) / PAGE_SIZE);
+    let num_threads = min(MAX_THREADS, (data.len() + PAGE_SIZE - 1) / PAGE_SIZE);
 
-        let block_size = data.len() / num_threads;
-        // Round up to nearest multiple of PAGE_SIZE.
-        let block_size = ((block_size + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+    let block_size = data.len() / num_threads;
+    // Round up to nearest multiple of PAGE_SIZE.
+    let block_size = ((block_size + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
 
-        let (results_tx, results_rx) = mpsc::channel();
+    let (results_tx, results_rx) = mpsc::channel();
 
-        for i in 0..num_threads {
-            let results_tx = results_tx.clone();
-            scope.spawn(move || -> Result<()> {
-                let block_start = block_size * i;
-                let block_end = min(data.len(), block_start + block_size);
+    for i in 0..num_threads {
+        let results_tx = results_tx.clone();
+        std::thread::spawn(move || -> Result<()> {
+            let block_start = block_size * i;
+            let block_end = min(data.len(), block_start + block_size);
 
-                // Walk backwards to find the start of the record potentially
-                // straddling the boundary with the previous block.
-                let mut record_start = block_start;
-                while record_start > 0 && data[record_start - 1] != b'\n' {
-                    record_start -= 1;
+            // Walk backwards to find the start of the record potentially
+            // straddling the boundary with the previous block.
+            let mut record_start = block_start;
+            while record_start > 0 && data[record_start - 1] != b'\n' {
+                record_start -= 1;
+            }
+            let record_start = record_start;
+
+            let data = &data[record_start..block_end];
+            let lines = data.lines();
+
+            let mut station_stats = StationStats::new();
+            for line in lines {
+                let line = line?;
+                match Measurement::try_from(line.as_str()) {
+                    Ok(measurement) => station_stats.record(measurement),
+                    // If we failed to parse the current line as a Measurement,
+                    // then we assume that it was truncated at the block boundary,
+                    // and has therefore already been handled as part of the next block.
+                    Err(_) => break,
                 }
-                let record_start = record_start;
+            }
 
-                let data = &data[record_start..block_end];
-                let lines = data.lines();
+            results_tx.send(station_stats).unwrap();
+            Ok(())
+        });
+    }
+    drop(results_tx);
 
-                let mut station_stats = StationStats::new();
-                for line in lines {
-                    let line = line?;
-                    match Measurement::try_from(line.as_str()) {
-                        Ok(measurement) => station_stats.record(measurement),
-                        // If we failed to parse the current line as a Measurement,
-                        // then we assume that it was truncated at the block boundary,
-                        // and has therefore already been handled as part of the next block.
-                        Err(_) => break,
-                    }
-                }
+    let mut station_stats = results_rx.recv().unwrap();
+    while let Ok(new_station_stats) = results_rx.recv() {
+        station_stats.merge(new_station_stats);
+    }
 
-                results_tx.send(station_stats).unwrap();
-                Ok(())
-            });
-        }
-        drop(results_tx);
-
-        let mut station_stats = results_rx.recv().unwrap();
-        while let Ok(new_station_stats) = results_rx.recv() {
-            station_stats.merge(new_station_stats);
-        }
-
-        Ok(station_stats)
-    })?;
-
-    println!("{}", result);
+    println!("{}", station_stats);
 
     Ok(())
 }
