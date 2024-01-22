@@ -22,11 +22,11 @@ at runtime via a command-line arg. The following table summarizes each version,
 describing the changes made from the previous version. Timings are from running on
 my laptop, an Apple M1 Pro with 32GB of RAM.
 
-| Name  | Time    | Description                                                                                                                          |
-|-------|---------|--------------------------------------------------------------------------------------------------------------------------------------|
-| naive | 2:23.33 | Straightforward implementation with no attempts at optimization.                                                                     |
-| v2    | 2:25.24 | Read file using `mmap` instead of `read`.                                                                                            |
-| v3    | 31.296  | Process file with multiple threads.                                                                                                  |
-| v4    | 28.652  | Use [`fxhash`](https://github.com/cbreeden/fxhash) for `HashTable`s instead of the built-in (slower, but more secure) hash function. |
-| v5    | 7.975   | Manual parser implementation that reduces allocations and skips utf8 checks.                                                         |
+| Version  | Time    | Description                                                                                                                          |
+|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------|
+| naive    | 2:23.33 | Straightforward implementation with no attempts at optimization.                                                                     |
+| v2       | 2:25.24 | Read file using `mmap` instead of `read`.                                                                                            |
+| v3       | 31.296  | Process file with multiple threads.                                                                                                  |
+| v4       | 28.652  | Use [`fxhash`](https://github.com/cbreeden/fxhash) for `HashTable`s instead of the built-in (slower, but more secure) hash function. |
+| v5       | 7.975   | Manual parser implementation that reduces allocations and skips utf8 checks.                                                         |
 
