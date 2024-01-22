@@ -6,6 +6,7 @@ mod mmap;
 
 mod naive;
 mod v2;
+mod v3;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -20,6 +21,8 @@ fn main() -> Result<()> {
         naive::run(filename)?;
     } else if version == "v2" {
         v2::run(filename)?;
+    } else if version == "v3" {
+        v3::run(filename)?;
     } else {
         bail!("invalid version {}", version)
     }

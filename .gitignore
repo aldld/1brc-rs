@@ -10,6 +10,7 @@ target/
 *.pdb
 
 /measurements.txt
+/output_*.txt
 
 
 # Added by cargo
